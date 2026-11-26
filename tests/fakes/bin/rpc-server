@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""Stand-in for llama.cpp's rpc-server (tests only): listens on -H/-p and logs connections."""
+import socket
+import sys
+
+args = sys.argv[1:]
+host = args[args.index("-H") + 1] if "-H" in args else "127.0.0.1"
+port = int(args[args.index("-p") + 1]) if "-p" in args else 50052
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind((host, port))
+s.listen(8)
+print(f"[fake] Starting RPC server on {host}:{port}", flush=True)
+while True:
+    c, addr = s.accept()
+    print(f"[fake] Accepted client connection from {addr[0]}", flush=True)
+    c.close()

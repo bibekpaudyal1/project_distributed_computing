@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Stand-in for llama.cpp's llama-server (tests only).
+
+Checks the model file exists, connects to every --rpc worker, then serves /health and a
+streaming /v1/chat/completions that echoes which workers took part.
+"""
+import json
+import os
+import socket
+import sys
+import time
+
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+
+args = sys.argv[1:]
+get = lambda k, d=None: args[args.index(k) + 1] if k in args else d  # noqa: E731
+model, port = get("-m"), int(get("--port", 8080))
+rpc = [r for r in (get("--rpc", "") or "").split(",") if r]
+if "--list-devices" in args:
+    print("Available devices:")
+    print("  FAKEGPU0: Fake local GPU (8192 MiB, 8000 MiB free)")
+    for ep in rpc:
+        print(f"  RPC[{ep}]: RPC[{ep}] (16384 MiB, 16000 MiB free)")
+    sys.exit(0)
+devices, split = get("--device", ""), get("--tensor-split", "")
+if "--fake-crash" in args:
+    print("[fake] ggml_backend_alloc: failed to allocate buffer (out of memory)", flush=True)
+    sys.exit(1)
+if not model or not os.path.exists(model):
+    print(f"[fake] error: failed to load model '{model}'", flush=True)
+    sys.exit(1)
+print(f"[fake] llama_model_loader: loaded {os.path.basename(model)}", flush=True)
+for ep in rpc:
+    h, p = ep.rsplit(":", 1)
+    try:
+        socket.create_connection((h, int(p)), timeout=3).close()
+        print(f"[fake] using RPC device {ep}", flush=True)
+    except OSError as e:
+        print(f"[fake] error: failed to connect to RPC server {ep}: {e}", flush=True)
+        sys.exit(1)
+time.sleep(1)
+app = FastAPI()
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/v1/chat/completions")
+def chat(body: dict):
+    text = (f"Hello from the fake cluster: {len(rpc)} RPC worker(s) {rpc} + main. "
+            f"devices=[{devices}] split=[{split}] flags={[a for a in args if a.startswith('--cache') or a == '-ot']}")
+
+    def gen():
+        for w in text.split(" "):
+            yield f"data: {json.dumps({'choices': [{'delta': {'content': w + ' '}}]})}\n\n"
+            time.sleep(0.01)
+        yield "data: [DONE]\n\n"
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+print(f"[fake] main: server is listening on http://0.0.0.0:{port}", flush=True)
+uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

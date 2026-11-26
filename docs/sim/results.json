@@ -1,0 +1,214 @@
+{
+ "models": [
+  {
+   "model": "Llama 3.3 70B \u00b7 Q4_K_M",
+   "size_gb": 42.5,
+   "default_tps": 6.7,
+   "optimized_tps": 24.45,
+   "speedup": 3.65,
+   "devices_used": [
+    "rtx",
+    "ws"
+   ],
+   "kv": "f16",
+   "moe_hybrid": false,
+   "best_main": "rtx",
+   "best_main_tps": 24.45,
+   "steps": {
+    "llama.cpp default": 6.7,
+    "+ device selection & placement": 12.41,
+    "+ KV cache quantization": 12.41,
+    "+ MoE experts in CPU RAM": 12.41,
+    "+ speculative decoding": 24.45
+   }
+  },
+  {
+   "model": "Qwen3 235B-A22B \u00b7 Q4_K_M",
+   "size_gb": 142.0,
+   "default_tps": 11.05,
+   "optimized_tps": 28.11,
+   "speedup": 2.54,
+   "devices_used": [
+    "rtx",
+    "studio"
+   ],
+   "kv": "f16",
+   "moe_hybrid": false,
+   "best_main": "studio",
+   "best_main_tps": 28.52,
+   "steps": {
+    "llama.cpp default": 11.05,
+    "+ device selection & placement": 19.25,
+    "+ KV cache quantization": 19.25,
+    "+ MoE experts in CPU RAM": 19.25,
+    "+ speculative decoding": 28.11
+   }
+  },
+  {
+   "model": "GLM-4.5-Air 106B \u00b7 Q4_K_M",
+   "size_gb": 68.0,
+   "default_tps": 15.97,
+   "optimized_tps": 43.54,
+   "speedup": 2.73,
+   "devices_used": [
+    "rtx",
+    "studio",
+    "ws"
+   ],
+   "kv": "f16",
+   "moe_hybrid": false,
+   "best_main": "ws",
+   "best_main_tps": 44.35,
+   "steps": {
+    "llama.cpp default": 15.97,
+    "+ device selection & placement": 30.23,
+    "+ KV cache quantization": 30.23,
+    "+ MoE experts in CPU RAM": 30.23,
+    "+ speculative decoding": 43.54
+   }
+  },
+  {
+   "model": "GLM-5 744B \u00b7 IQ2_XXS",
+   "size_gb": 208.0,
+   "default_tps": 12.47,
+   "optimized_tps": 28.67,
+   "speedup": 2.3,
+   "devices_used": [
+    "rtx",
+    "studio",
+    "ws",
+    "mbp"
+   ],
+   "kv": "f16",
+   "moe_hybrid": false,
+   "best_main": "rtx",
+   "best_main_tps": 28.67,
+   "steps": {
+    "llama.cpp default": 12.47,
+    "+ device selection & placement": 19.64,
+    "+ KV cache quantization": 19.64,
+    "+ MoE experts in CPU RAM": 19.64,
+    "+ speculative decoding": 28.67
+   }
+  },
+  {
+   "model": "GLM-5 744B \u00b7 Q2_K",
+   "size_gb": 262.0,
+   "default_tps": null,
+   "optimized_tps": 16.44,
+   "speedup": null,
+   "devices_used": [
+    "rtx",
+    "studio",
+    "ws",
+    "mbp",
+    "air"
+   ],
+   "kv": "q4_0",
+   "moe_hybrid": false,
+   "best_main": "rtx",
+   "best_main_tps": 16.44,
+   "steps": {
+    "llama.cpp default": null,
+    "+ device selection & placement": null,
+    "+ KV cache quantization": 11.11,
+    "+ MoE experts in CPU RAM": 11.11,
+    "+ speculative decoding": 16.44
+   }
+  },
+  {
+   "model": "GLM-5 744B \u00b7 Q4_K_M",
+   "size_gb": 438.0,
+   "default_tps": null,
+   "optimized_tps": null,
+   "speedup": null,
+   "devices_used": null,
+   "kv": null,
+   "moe_hybrid": null,
+   "best_main": null,
+   "best_main_tps": null,
+   "steps": {
+    "llama.cpp default": null,
+    "+ device selection & placement": null,
+    "+ KV cache quantization": null,
+    "+ MoE experts in CPU RAM": null,
+    "+ speculative decoding": null
+   }
+  }
+ ],
+ "latency_sweep": [
+  [
+   0.1,
+   7.382255586675712,
+   12.52,
+   2
+  ],
+  [
+   0.25,
+   7.317432597468372,
+   12.47,
+   2
+  ],
+  [
+   0.5,
+   7.211887594718627,
+   12.4,
+   2
+  ],
+  [
+   1,
+   7.009675624015278,
+   12.24,
+   2
+  ],
+  [
+   2,
+   6.63746387422006,
+   11.95,
+   2
+  ],
+  [
+   3,
+   6.302787670463416,
+   11.67,
+   2
+  ],
+  [
+   5,
+   5.725410884377183,
+   11.15,
+   2
+  ],
+  [
+   8,
+   5.033727137032734,
+   10.45,
+   2
+  ],
+  [
+   12,
+   4.335386285928761,
+   9.65,
+   2
+  ],
+  [
+   20,
+   3.393742473079845,
+   8.36,
+   2
+  ],
+  [
+   30,
+   2.66908696836823,
+   7.16,
+   2
+  ]
+ ],
+ "failure": {
+  "victim": "ws",
+  "before_tps": 43.54,
+  "after_tps": 43.53,
+  "reload_s": 160.1,
+  "moved_gb": 42.1
+ }
+}

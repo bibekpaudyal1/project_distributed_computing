@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalMesh AI — cluster dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%235eead4%27/%3E%3Ctext x=%2716%27 y=%2721%27 font-size=%2713%27 text-anchor=%27middle%27 font-family=%27Arial%27 font-weight=%27900%27 fill=%27%2306110f%27%3ELM%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0b0e13; --panel:#121720; --panel2:#171d28; --line:#232b38; --text:#e6ebf2; --muted:#8a96a8;
+  --accent:#5eead4; --accent2:#7c9cff; --good:#4ade80; --ok:#facc15; --bad:#f87171; --demo:#c084fc;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+a{color:var(--accent)}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+nav{background:#0e1219;border-right:1px solid var(--line);padding:18px 12px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;margin:2px 8px 22px}
+.logo{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 200deg,var(--accent),var(--accent2),var(--accent));display:grid;place-items:center;color:#06110f;font-weight:900;font-size:13px}
+nav button{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;color:var(--muted);padding:10px 12px;border-radius:8px;font-size:14px;cursor:pointer;text-align:left}
+nav button:hover{background:var(--panel);color:var(--text)}
+nav button.active{background:var(--panel2);color:var(--text);box-shadow:inset 3px 0 0 var(--accent)}
+nav .count{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.navfoot{position:absolute;bottom:16px;left:12px;right:12px;font-size:12px;color:var(--muted)}
+main{padding:22px 28px 60px;max-width:1400px}
+header.top{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+header.top h1{font-size:20px;margin:0}
+.sub{color:var(--muted);font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);font-size:12px;color:var(--muted);background:var(--panel)}
+.pill.demo{color:var(--demo);border-color:#5b3d78}
+.spacer{flex:1}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:120px}
+.stat b{display:block;font-size:18px;font-family:var(--mono)}
+.stat span{font-size:12px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h3{margin:0 0 10px;font-size:15px}
+.grid{display:grid;gap:14px}
+.devices{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.dev{position:relative}
+.dev.off{opacity:.55}
+.dev .head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good)}
+.dot.offline{background:var(--bad);box-shadow:none}
+.dev .name{font-weight:650;font-size:15px}
+.dev .os{margin-left:auto}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:3px 10px;font-size:13px;margin:8px 0}
+.kv div:nth-child(odd){color:var(--muted)}
+.bar{height:8px;background:#0b0f15;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .4s}
+.ifaces{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.iface{font-family:var(--mono);font-size:11.5px;padding:3px 7px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
+.t-ethernet{color:#7dd3fc}.t-wifi{color:#fbbf24}.t-thunderbolt{color:#c4b5fd}.t-other,.t-vpn,.t-routed{color:var(--muted)}
+.checks{display:flex;gap:10px;font-size:12px;margin-top:10px;color:var(--muted)}
+.ok{color:var(--good)}.no{color:var(--bad)}.warn{color:var(--ok)}
+.badge{font-size:10.5px;padding:2px 6px;border-radius:5px;font-weight:700;letter-spacing:.03em}
+.badge.demo{background:#3b2552;color:var(--demo)}
+.badge.self{background:#11332e;color:var(--accent)}
+label.sw{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--muted)}
+input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
+.btn{background:var(--accent);color:#04120f;border:0;border-radius:8px;padding:9px 15px;font-weight:650;cursor:pointer;font-size:13.5px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn.danger{background:#3a1717;color:#fca5a5;border:1px solid #5b2323}
+.btn.sm{padding:6px 10px;font-size:12.5px}
+input[type=text],input[type=number],select,textarea{background:#0c1017;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 11px;font-size:13.5px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;background:#0c1017;border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{background:none;border:0;color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:13px}
+.seg button.on{background:var(--panel2);color:var(--text)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+th{color:var(--muted);font-weight:550;font-size:12px}
+.matrix td,.matrix th{text-align:center;border:1px solid var(--line)}
+.matrix th.rowh{text-align:right}
+.cell{font-family:var(--mono);font-size:12px;line-height:1.3;border-radius:6px;padding:6px 4px}
+.cell .big{font-size:13.5px;font-weight:700}
+.g-good{background:#0f2a1b;color:#86efac}.g-ok{background:#2a2510;color:#fde68a}.g-bad{background:#2c1414;color:#fca5a5}.g-na{color:var(--muted)}
+.progress{height:6px;background:#0b0f15;border-radius:99px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.list .item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.list .item:hover,.list .item.sel{background:var(--panel2)}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:99px;padding:5px 11px;font-size:12.5px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.fit{font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:5px}
+.fit.yes{background:#0f2a1b;color:#86efac}.fit.tight{background:#2a2510;color:#fde68a}.fit.no{background:#2c1414;color:#fca5a5}
+.share{display:grid;grid-template-columns:220px 1fr 230px;gap:10px;align-items:center;margin:6px 0;font-size:13px}
+.logs{background:#07090d;border:1px solid var(--line);border-radius:8px;font-family:var(--mono);font-size:11.5px;padding:10px;max-height:260px;overflow:auto;white-space:pre-wrap;color:#b7c2d0}
+.chatbox{height:52vh;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:6px}
+.msg{max-width:78%;padding:10px 13px;border-radius:12px;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:#163a35;border:1px solid #1f524b}
+.msg.assistant{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
+.toast{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--line);padding:12px 16px;border-radius:10px;max-width:420px;box-shadow:0 10px 30px #0008;z-index:9;display:none}
+.toast.err{border-color:#5b2323;color:#fecaca}
+.notice{border:1px dashed #5b3d78;background:#1a1224;color:#e9d5ff;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px}
+.empty{color:var(--muted);text-align:center;padding:30px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend .lg::before{background:#14532d}.legend .lo::before{background:#713f12}.legend .lb::before{background:#7f1d1d}
+.steps div{padding:4px 0}
+section{display:none}section.on{display:block}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}.cmp>div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}.cmp .big{font-size:24px;font-family:var(--mono);font-weight:700}
+.health{border:1px solid #5b2323;background:#2c1414;color:#fecaca;border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1000px){.two{grid-template-columns:1fr}.app{grid-template-columns:1fr}nav{position:static;height:auto}.navfoot{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<nav>
+  <div class="brand"><div class="logo">LM</div>LocalMesh AI</div>
+  <button data-tab="devices" class="active">◉ Devices <span class="count" id="nDev">0</span></button>
+  <button data-tab="network">⇄ Connections</button>
+  <button data-tab="models">⬇ Models</button>
+  <button data-tab="deploy">▶ Deploy</button>
+  <button data-tab="chat">✦ Chat &amp; API</button>
+  <div class="navfoot">
+    <label class="sw"><input type="checkbox" id="demoToggle"> Demo devices</label>
+    <div style="margin-top:8px" id="clusterInfo"></div>
+  </div>
+</nav>
+<main>
+  <header class="top">
+    <div>
+      <h1 id="title">Devices</h1>
+      <div class="sub" id="subtitle">Every device running LocalMesh on this network shows up here automatically.</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="stat"><b id="sOnline">0</b><span>devices online</span></div>
+    <div class="stat"><b id="sPool">0 GB</b><span>pool memory (selected)</span></div>
+    <div class="stat"><b id="sDeploy">—</b><span>deployment</span></div>
+  </header>
+  <div id="demoNotice" class="notice" style="display:none">Demo mode is on: devices marked <span class="badge demo">DEMO</span> are simulated, and so are their connection tests, downloads and replies. Real devices that join appear alongside them.</div>
+
+  <!-- DEVICES -->
+  <section id="tab-devices" class="on">
+    <div class="card" style="margin-bottom:14px">
+      <div class="row">
+        <b>Add a device by IP</b><span class="muted" style="font-size:13px">— if it doesn't appear automatically (some Wi-Fi networks block discovery)</span>
+        <div class="spacer"></div>
+        <input type="text" id="addAddr" placeholder="192.168.1.42 or 192.168.1.42:7860" style="width:260px">
+        <button class="btn" id="addBtn">Connect</button>
+      </div>
+      <div style="margin-top:12px">
+        <div class="row" style="justify-content:space-between;font-size:12px" ><span class="muted">Pool memory by device (selected devices only)</span><span class="mono" id="poolLabel"></span></div>
+        <div id="poolBar" style="display:flex;height:14px;border-radius:99px;overflow:hidden;margin-top:6px;border:1px solid var(--line);background:#0b0f15"></div>
+      </div>
+    </div>
+    <div class="grid devices" id="deviceGrid"></div>
+  </section>
+
+  <!-- NETWORK -->
+  <section id="tab-network">
+    <div class="card" style="margin-bottom:14px">
+      <div class="row">
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">Network to test</div>
+          <div class="seg" id="netType">
+            <button data-v="auto" class="on">Auto (best)</button><button data-v="ethernet">Ethernet</button><button data-v="wifi">Wi-Fi</button><button data-v="thunderbolt">Thunderbolt</button>
+          </div></div>
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">Test size</div>
+          <div class="seg" id="netSize"><button data-v="10" class="on">Quick · 10 MB</button><button data-v="50">Standard · 50 MB</button><button data-v="200">Thorough · 200 MB</button></div></div>
+        <label class="sw" style="margin-top:18px"><input type="checkbox" id="bothDir" checked> Both directions</label>
+        <div class="spacer"></div>
+        <button class="btn" id="runTest" style="margin-top:18px">Test every connection</button>
+      </div>
+      <div style="margin-top:14px;display:none" id="testProg"><div class="row" style="justify-content:space-between;font-size:12px;margin-bottom:5px"><span id="testProgLabel">Testing…</span><span class="mono" id="testProgN"></span></div><div class="progress"><i id="testProgBar" style="width:0"></i></div></div>
+    </div>
+    <div class="card">
+      <h3>Connection matrix <span class="muted" style="font-weight:400;font-size:12px">— row device downloads from column device · latency / throughput</span></h3>
+      <div id="matrix" style="overflow:auto"></div>
+      <div class="legend"><span class="lg">Great for splitting a model (&lt;1 ms, ≥900 Mbps)</span><span class="lo">Usable (&lt;5 ms or ≥200 Mbps)</span><span class="lb">Slow — expect low tokens/sec</span></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h3>Test details</h3><div id="testDetails" class="muted">No tests yet.</div></div>
+  </section>
+
+  <!-- MODELS -->
+  <section id="tab-models">
+    <div class="card" style="margin-bottom:14px">
+      <div class="row">
+        <input type="text" id="hfQuery" placeholder="Search Hugging Face GGUF models (e.g. GLM, Qwen, Llama)…" style="flex:1;min-width:260px">
+        <button class="btn" id="hfSearch">Search</button>
+      </div>
+      <div class="chips" style="margin-top:10px" id="quickChips"></div>
+      <div class="muted" style="font-size:12px;margin-top:8px" id="hfSource"></div>
+    </div>
+    <div class="two">
+      <div class="card" style="padding:0"><div style="padding:14px 16px 6px"><h3>Results</h3></div><div class="list" id="hfResults"><div class="empty">Search for a model to start.</div></div></div>
+      <div class="card"><h3 id="variantTitle">Versions &amp; fit</h3><div id="variants" class="muted">Pick a model to see its sizes and whether it fits your selected devices.</div></div>
+    </div>
+    <div class="card" style="margin-top:14px" id="planCard" hidden><h3>Placement plan</h3><div id="plan"></div></div>
+    <div class="card" style="margin-top:14px"><h3>Downloads &amp; local models</h3><div id="downloads" class="muted">No downloads yet.</div></div>
+  </section>
+
+  <!-- DEPLOY -->
+  <section id="tab-deploy">
+    <div class="two">
+      <div class="card">
+        <h3>1 · Choose devices</h3>
+        <div class="muted" style="font-size:12.5px;margin-bottom:8px">The <b>main</b> device holds the model file and serves the API. The others become workers.</div>
+        <div class="row" style="margin-bottom:10px"><span style="width:90px" class="muted">Main</span><select id="mainSel" style="flex:1"></select></div>
+        <div id="workerList"></div>
+        <div class="row" style="margin-top:12px"><span style="width:90px" class="muted">Network</span>
+          <div class="seg" id="depNet"><button data-v="auto" class="on">Auto</button><button data-v="ethernet">Ethernet</button><button data-v="wifi">Wi-Fi</button><button data-v="thunderbolt">Thunderbolt</button></div></div>
+      </div>
+      <div class="card">
+        <h3>2 · Model &amp; settings</h3>
+        <div class="row" style="margin-bottom:10px"><span style="width:90px" class="muted">Model file</span><select id="modelSel" style="flex:1"></select><button class="btn ghost sm" id="refreshModels">↻</button></div>
+        <div class="row" style="margin-bottom:10px"><span style="width:90px" class="muted">Context</span><select id="ctxSel"><option>2048</option><option selected>4096</option><option>8192</option><option>16384</option><option>32768</option></select></div>
+        <div class="row" style="margin-bottom:10px"><span style="width:90px" class="muted">Extra args</span><input type="text" id="extraArgs" placeholder="e.g. --jinja -fa on" style="flex:1"></div>
+        <div class="row" style="margin-bottom:10px"><span style="width:90px" class="muted">Draft model</span><select id="draftSel" style="flex:1"><option value="">None (no speculative decoding)</option></select></div>
+        <label class="sw" style="display:flex;margin-bottom:6px"><input type="checkbox" id="autoOpt" checked> <span><b style="color:var(--text)">Auto-optimize</b> — choose devices, layer split, KV cache type, MoE offload &amp; speculation</span></label>
+        <label class="sw"><input type="checkbox" id="rpcCache"> Cache weights on workers (rpc-server -c, faster reloads)</label>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>3 · Pre-flight checks &amp; optimized plan</h3>
+      <div id="preflight"></div>
+      <div id="optPreview"></div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="deployBtn">Deploy model</button><button class="btn danger" id="stopBtn">Stop</button><span id="deployMsg" class="muted"></span></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h3>Status &amp; logs</h3><div id="depStatus" class="muted">Nothing running.</div></div>
+  </section>
+
+  <!-- CHAT -->
+  <section id="tab-chat">
+    <div class="two" style="grid-template-columns:2fr 1fr">
+      <div class="card">
+        <div class="chatbox" id="chatBox"><div class="empty">Deploy a model, then chat with it here.</div></div>
+        <div class="row" style="margin-top:10px"><textarea id="chatIn" rows="2" style="flex:1;resize:vertical" placeholder="Ask the cluster something…"></textarea><button class="btn" id="chatSend">Send</button></div>
+        <div class="muted mono" style="font-size:12px;margin-top:6px" id="chatStats"></div>
+      </div>
+      <div class="card">
+        <h3>Use it from any app</h3>
+        <div class="muted" style="font-size:13px">The main device serves an OpenAI-compatible API:</div>
+        <div class="logs" id="apiInfo" style="margin-top:8px">—</div>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('lm_'+k); return v===null? d : JSON.parse(v);}catch(e){return d;} },
+  set(k, v){ try{ localStorage.setItem('lm_'+k, JSON.stringify(v)); }catch(e){} }
+};
+let S = { cluster:null, selected:new Set(store.get('selected', [])), excluded:new Set(store.get('excluded', [])),
+          netType:'auto', netSize:10, depNet:'auto', model:null, variant:null, plans:{}, dlNodes:new Set(), chat:[] };
+
+async function api(path, opts={}){
+  const headers = {'Content-Type':'application/json'};
+  const tok = store.get('token',''); if(tok) headers['X-LocalMesh-Token'] = tok;
+  const r = await fetch(path, {method: opts.body? 'POST': (opts.method||'GET'), headers, body: opts.body? JSON.stringify(opts.body): undefined});
+  if(r.status===401){ const t = prompt('This cluster is protected. Enter the cluster token:'); if(t){ store.set('token', t); return api(path, opts);} }
+  if(!r.ok){ let msg = r.statusText; try{ const j = await r.json(); msg = j.detail || JSON.stringify(j);}catch(e){} throw new Error(msg); }
+  return r.json();
+}
+function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='toast'+(err?' err':''); t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', err?7000:3500); }
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const gb = v => v==null? '—' : v<1 ? Math.max(1,Math.round(v*1024))+' MB' : (v>=100? Math.round(v) : (+v).toFixed(1))+' GB';
+const fmtMbps = v => v>=1000? (v/1000).toFixed(1)+' Gbps' : Math.round(v)+' Mbps';
+
+// ---------- tabs
+const TITLES = {devices:['Devices','Every device running LocalMesh on this network shows up here automatically.'],
+  network:['Connections','Measure delay and speed between every pair of devices, per network type.'],
+  models:['Models','Browse Hugging Face, check what fits your pool, and download.'],
+  deploy:['Deploy','Split a model across the selected devices and serve it.'],
+  chat:['Chat & API','Talk to the deployed model, or point any OpenAI-compatible app at it.']};
+function showTab(t){
+  $$('nav button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+  $$('main section').forEach(s=>s.classList.toggle('on', s.id==='tab-'+t));
+  $('#title').textContent = TITLES[t][0]; $('#subtitle').textContent = TITLES[t][1];
+  S.tab = t; store.set('tab', t);
+  if(t==='deploy'){ renderDeploy(); loadModelFiles(); }
+  if(t==='models'){ pollDownloads(); }
+}
+$$('nav button[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function seg(id, key){ $$(id+' button').forEach(b=>b.onclick=()=>{ $$(id+' button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); S[key]= isNaN(+b.dataset.v)? b.dataset.v : +b.dataset.v; if(key==='depNet') renderPreflight(); }); }
+seg('#netType','netType'); seg('#netSize','netSize'); seg('#depNet','depNet');
+
+// ---------- cluster state
+function nodes(){ return S.cluster? S.cluster.nodes : []; }
+function node(id){ return nodes().find(n=>n.id===id); }
+function isSelected(n){ return n.online && n.info && !S.excluded.has(n.id); }
+function selectedNodes(){ return nodes().filter(isSelected); }
+async function refresh(){
+  try{ S.cluster = await api('/api/cluster'); }catch(e){ return; }
+  const c = S.cluster;
+  $('#demoToggle').checked = c.demo;
+  $('#demoNotice').style.display = c.demo? 'block':'none';
+  $('#nDev').textContent = c.nodes.length;
+  $('#sOnline').textContent = c.nodes.filter(n=>n.online).length;
+  const pool = selectedNodes().reduce((a,n)=>a+(n.info.usable_memory_gb||0),0);
+  $('#sPool').textContent = gb(pool);
+  const d = c.deployment; $('#sDeploy').textContent = d? (d.health && !d.health.ok ? 'degraded' : d.state) : '—';
+  $('#sDeploy').style.color = d && d.health && !d.health.ok ? 'var(--ok)' : d && d.state==='running'? 'var(--good)' : d && d.state==='failed'? 'var(--bad)':'';
+  $('#clusterInfo').innerHTML = `cluster <span class="mono">${esc(c.cluster)}</span>${c.token_set?' · 🔒 token':''}` + (c.discovery_errors.length? `<div class="warn" style="margin-top:4px">${esc(c.discovery_errors[0])}</div>`:'');
+  renderDevices(); renderMatrix();
+  if(S.tab==='deploy') renderDeploy();
+  if(S.tab==='models' && S.variant) renderVariants();
+}
+
+function renderDevices(){
+  const grid = $('#deviceGrid');
+  const list = nodes();
+  if(!list.length){ grid.innerHTML = '<div class="empty">No devices yet.</div>'; return; }
+  grid.innerHTML = list.map(n=>{
+    const i = n.info || {};
+    const gpus = (i.gpus||[]).map(g=> g.vendor==='nvidia'? `${esc(g.name.replace('NVIDIA GeForce ',''))} · ${g.vram_gb} GB` : esc(g.name.replace(' (Metal, unified memory)','')) ).join('<br>') || 'CPU only';
+    const memKind = {"nvidia-vram":"GPU VRAM","apple-unified":"unified memory","cpu-ram":"system RAM"}[i.memory_kind]||'';
+    const util = i.ram_total_gb? Math.round(100*(1-(i.ram_available_gb/i.ram_total_gb))) : 0;
+    const ifs = (i.interfaces||[]).map(f=>`<span class="iface t-${f.type}" title="${esc(f.name)} ${f.speed_mbps? f.speed_mbps+' Mbps link':''}">${f.type==='wifi'?'📶':f.type==='ethernet'?'🔌':f.type==='thunderbolt'?'⚡':'·'} ${esc(f.label)} ${esc(f.ip)}</span>`).join('');
+    const lc = i.llama_cpp||{};
+    const sel = !S.excluded.has(n.id);
+    return `<div class="card dev ${n.online?'':'off'}">
+      <div class="head"><span class="dot ${n.online?'':'offline'}"></span><span class="name">${esc(n.name)}</span>
+        ${n.self?'<span class="badge self">THIS DEVICE</span>':''}${n.simulated?'<span class="badge demo">DEMO</span>':''}
+        <span class="os pill">${esc(i.os||'?')}</span></div>
+      <div class="muted mono" style="font-size:12px">${esc(n.address||'')}${n.error&&!n.online? ' · '+esc(n.error):''}</div>
+      <div class="kv">
+        <div>Chip</div><div>${esc(i.cpu||'—')} <span class="muted">· ${i.cores||'?'} cores</span></div>
+        <div>GPU</div><div>${gpus}</div>
+        <div>Memory</div><div>${gb(i.ram_total_gb)} <span class="muted">· ${util}% in use</span></div>
+        <div>For models</div><div><b>${gb(i.usable_memory_gb)}</b> <span class="muted">${memKind}</span></div>
+        <div>Disk free</div><div>${gb(i.disk_free_gb)}</div>
+      </div>
+      <div class="bar"><i style="width:${util}%"></i></div>
+      <div class="ifaces">${ifs || '<span class="muted">no network interfaces found</span>'}</div>
+      <div class="checks"><span class="${lc['rpc-server']?'ok':'no'}">${lc['rpc-server']?'✓':'✗'} rpc-server</span><span class="${lc['llama-server']?'ok':'no'}">${lc['llama-server']?'✓':'✗'} llama-server</span>
+        <span class="spacer"></span>
+        <label class="sw"><input type="checkbox" data-sel="${n.id}" ${sel?'checked':''} ${n.online?'':'disabled'}> In pool</label>
+        ${n.manual && !n.self? `<button class="btn ghost sm" data-rm="${n.id}">Remove</button>`:''}
+      </div></div>`;
+  }).join('');
+  $$('[data-sel]').forEach(cb=>cb.onchange=()=>{ cb.checked? S.excluded.delete(cb.dataset.sel) : S.excluded.add(cb.dataset.sel); store.set('excluded',[...S.excluded]); refresh(); });
+  $$('[data-rm]').forEach(b=>b.onclick=async()=>{ await api('/api/peers/remove',{body:{id:b.dataset.rm}}); refresh(); });
+  // pool bar
+  const sel = selectedNodes(), total = sel.reduce((a,n)=>a+n.info.usable_memory_gb,0)||1;
+  const colors = ['#5eead4','#7c9cff','#f472b6','#facc15','#a3e635','#fb923c','#c084fc','#38bdf8'];
+  $('#poolBar').innerHTML = sel.map((n,k)=>`<div title="${esc(n.name)}: ${gb(n.info.usable_memory_gb)}" style="width:${100*n.info.usable_memory_gb/total}%;background:${colors[k%colors.length]}"></div>`).join('');
+  $('#poolLabel').innerHTML = sel.map((n,k)=>`<span style="color:${colors[k%colors.length]}">■</span> ${esc(n.name)} ${gb(n.info.usable_memory_gb)}`).join(' &nbsp; ') + ` &nbsp; = <b>${gb(total)}</b>`;
+}
+$('#addBtn').onclick = async()=>{ const a=$('#addAddr').value.trim(); if(!a) return; $('#addBtn').disabled=true;
+  try{ const r = await api('/api/peers/add',{body:{address:a}}); toast('Connected to '+r.name); $('#addAddr').value=''; refresh(); }catch(e){ toast(e.message, true);} $('#addBtn').disabled=false; };
+$('#demoToggle').onchange = async e=>{ await api('/api/demo',{body:{on:e.target.checked}}); refresh(); };
+
+// ---------- connection tests
+function grade(r){ if(!r||!r.ok) return 'g-na'; if(r.latency_ms<1 && r.mbps>=900) return 'g-good'; if(r.latency_ms<5 || r.mbps>=200) return 'g-ok'; return 'g-bad'; }
+function renderMatrix(){
+  const list = selectedNodes(); const L = (S.cluster||{}).links||{};
+  if(list.length<2){ $('#matrix').innerHTML = '<div class="empty">Select at least two online devices to test connections.</div>'; return; }
+  let h = '<table class="matrix"><tr><th></th>'+list.map(n=>`<th>${esc(n.name)}</th>`).join('')+'</tr>';
+  for(const a of list){
+    h += `<tr><th class="rowh">${esc(a.name)}</th>`;
+    for(const b of list){
+      if(a.id===b.id){ h+='<td class="muted">—</td>'; continue; }
+      const r = L[a.id+'|'+b.id];
+      if(!r){ h+='<td class="muted" style="font-size:12px">not tested</td>'; continue; }
+      if(!r.ok){ h+=`<td><div class="cell g-bad" title="${esc(r.error)}">✗<br><span style="font-size:10.5px">${esc((r.error||'').slice(0,34))}</span></div></td>`; continue; }
+      h += `<td><div class="cell ${grade(r)}"><div class="big">${r.latency_ms} ms</div>${fmtMbps(r.mbps)}<div style="opacity:.75;font-size:10.5px">${esc(r.type)}${r.simulated?' · sim':''}</div></div></td>`;
+    }
+    h += '</tr>';
+  }
+  $('#matrix').innerHTML = h+'</table>';
+  const res = Object.values(L).filter(r=>node(r.from)&&node(r.to));
+  $('#testDetails').innerHTML = res.length? '<table><tr><th>From → To</th><th>Network</th><th>Path</th><th>Latency</th><th>Jitter</th><th>Throughput</th><th>Loss</th><th>Result</th></tr>'+res.map(r=>`<tr><td>${esc(node(r.from).name)} → ${esc(node(r.to).name)}</td><td><span class="t-${r.type}">${esc(r.type)}</span></td><td class="mono" style="font-size:12px">${esc(r.from_ip||'auto')} → ${esc(r.to_ip||'')}</td><td>${r.ok?r.latency_ms+' ms':'—'}</td><td>${r.ok?r.jitter_ms+' ms':'—'}</td><td>${r.ok?fmtMbps(r.mbps):'—'}</td><td>${r.ok? Math.round((r.loss||0)*100)+'%':'—'}</td><td>${r.ok?'<span class="ok">ok</span>':'<span class="no">'+esc(r.error)+'</span>'}</td></tr>`).join('')+'</table>' : 'No tests yet.';
+}
+$('#runTest').onclick = async()=>{
+  const ids = selectedNodes().map(n=>n.id);
+  if(ids.length<2) return toast('Select at least two online devices first.', true);
+  try{ await api('/api/cluster/nettest',{body:{node_ids:ids,type:S.netType,mb:S.netSize,both_directions:$('#bothDir').checked}}); }catch(e){ return toast(e.message,true); }
+  $('#runTest').disabled = true; $('#testProg').style.display='block';
+  const tick = async()=>{ const j = await api('/api/cluster/nettest');
+    $('#testProgN').textContent = `${j.done}/${j.total}`; $('#testProgBar').style.width = (j.total? 100*j.done/j.total:0)+'%';
+    const last = j.results[j.results.length-1]; if(last && node(last.from)) $('#testProgLabel').textContent = `Tested ${node(last.from).name} → ${node(last.to).name}`;
+    await refresh();
+    if(j.state==='running') setTimeout(tick, 600); else { $('#runTest').disabled=false; $('#testProgLabel').textContent='Done'; toast('Connection test finished'); } };
+  tick();
+};
+
+// ---------- Hugging Face
+const QUICK = ['Qwen2.5-0.5B-Instruct','Llama-3.2-3B-Instruct','Qwen3','GLM-4.5-Air','GLM-5','DeepSeek','gpt-oss'];
+$('#quickChips').innerHTML = '<span class="muted" style="font-size:12.5px;align-self:center">Try:</span>'+QUICK.map(q=>`<span class="chip" data-q="${q}">${q}</span>`).join('');
+$$('#quickChips .chip').forEach(c=>c.onclick=()=>{ $('#hfQuery').value=c.dataset.q; hfSearch(); });
+$('#hfSearch').onclick = hfSearch; $('#hfQuery').onkeydown = e=>{ if(e.key==='Enter') hfSearch(); };
+async function hfSearch(){
+  const q = $('#hfQuery').value.trim(); $('#hfResults').innerHTML = '<div class="empty">Searching…</div>';
+  try{ const r = await api('/api/hf/search?q='+encodeURIComponent(q));
+    $('#hfSource').textContent = r.source==='offline-sample'? 'Hugging Face not reachable from this device — showing the built-in sample catalog (demo).' : `${r.results.length} GGUF models from huggingface.co, most downloaded first.`;
+    $('#hfResults').innerHTML = r.results.length? r.results.map(m=>`<div class="item" data-id="${esc(m.id)}"><div style="flex:1"><div>${esc(m.id)}</div><div class="muted" style="font-size:12px">${m.params_b? m.params_b+'B params':''}${m.active_b? ' · '+m.active_b+'B active (MoE)':''}</div></div><div class="muted mono" style="font-size:12px">⬇ ${(m.downloads||0).toLocaleString()}</div></div>`).join('') : '<div class="empty">No GGUF models found.</div>';
+    $$('#hfResults .item').forEach(it=>it.onclick=()=>{ $$('#hfResults .item').forEach(x=>x.classList.remove('sel')); it.classList.add('sel'); loadVariants(it.dataset.id); });
+  }catch(e){ $('#hfResults').innerHTML = `<div class="empty no">${esc(e.message)}</div>`; }
+}
+async function loadVariants(id){
+  $('#variantTitle').textContent = id; $('#variants').innerHTML = 'Loading files…';
+  try{ S.model = await api('/api/hf/files?id='+encodeURIComponent(id)); S.variant=null; $('#planCard').hidden=true; renderVariants(); }
+  catch(e){ $('#variants').innerHTML = `<span class="no">${esc(e.message)}</span>`; }
+}
+function quickFit(sizeGb){
+  const sel = selectedNodes(); const pool = sel.reduce((a,n)=>a+n.info.usable_memory_gb,0);
+  const need = sizeGb + Math.max(0.5, sizeGb/10*0.5) + 0.8*Math.max(sel.length,1);
+  return need<=pool*0.85? 'yes' : need<=pool? 'tight' : 'no';
+}
+function renderVariants(){
+  const m = S.model; if(!m) return;
+  if(!m.variants.length){ $('#variants').innerHTML = 'No GGUF files in this repo.'; return; }
+  const pool = selectedNodes().reduce((a,n)=>a+n.info.usable_memory_gb,0);
+  $('#variants').innerHTML = `<div class="muted" style="font-size:12.5px;margin-bottom:8px">${m.params_b? m.params_b+'B parameters':''}${m.active_b? ' · '+m.active_b+'B active per token (MoE)':''}${m.simulated?' · <span class="badge demo">SAMPLE</span>':''} · your selected pool: <b>${gb(pool)}</b></div>
+  <table><tr><th>Version</th><th>Size</th><th>Files</th><th>Fits?</th><th></th></tr>`+
+  m.variants.map((v,k)=>{ const f = quickFit(v.size_gb); return `<tr><td class="mono">${esc(v.quant)}</td><td>${gb(v.size_gb)}</td><td>${v.files.length}</td><td><span class="fit ${f}">${f==='yes'?'fits':f==='tight'?'tight':'too big'}</span></td><td><button class="btn ghost sm" data-v="${k}">Plan</button></td></tr>`; }).join('')+'</table>';
+  $$('#variants [data-v]').forEach(b=>b.onclick=()=>{ S.variant = m.variants[+b.dataset.v]; makePlan(); });
+}
+function optimizerHtml(o){
+  const N = o.names||{}; const op = o.optimized||{}; const nv = o.naive||{};
+  if(!op.fits) return `<div class="no" style="margin-top:10px">Optimizer: does not fit even with KV cache quantization and MoE offload. Add devices or choose a smaller version.</div>`;
+  const tech = [];
+  tech.push(`${op.used_ids.length} of ${Object.keys(N).length} devices used`);
+  if(op.kv_type!=='f16') tech.push(`KV cache ${op.kv_type} (KIVI-style)`);
+  if(op.moe_hybrid) tech.push('MoE experts in CPU RAM (KTransformers-style)');
+  return `<div class="cmp"><div><div class="muted" style="font-size:12px">llama.cpp default split</div><div class="big" style="color:var(--muted)">${nv.fits? nv.tps+' tok/s':'does not fit'}</div><div class="muted" style="font-size:12px">all devices, by free memory, f16 cache</div></div>
+    <div style="border-color:#1f524b"><div class="muted" style="font-size:12px">LocalMesh optimized ${o.speedup && o.speedup>=1.05? `<span class="fit yes">${o.speedup}× faster</span>`: o.speedup? '<span class="fit tight">already optimal</span>' : (nv.fits?'':'<span class="fit yes">now fits</span>')}</div><div class="big" style="color:var(--accent)">${op.tps_base} tok/s</div><div class="muted" style="font-size:12px">${esc(tech.join(' · '))}${op.unmeasured_links? ' · '+op.unmeasured_links+' link(s) not measured':''}</div></div></div>
+    ${Object.entries(op.assign).map(([id,n])=>{ const pd = op.per_device[id]||{}; return `<div class="share"><span>${esc(N[id]||id)}${id===o.main_id?' <span class="badge self">MAIN</span>':''}</span><div class="bar"><i style="width:${100*n/op.layers}%"></i></div><span class="mono" style="font-size:12px">${n} layers · ${pd.compute_ms}+${pd.network_ms} ms/tok</span></div>`; }).join('')}
+    ${(op.excluded||[]).map(e=>`<div class="muted" style="font-size:12.5px;margin-top:4px">○ <b>${esc(e.name)}</b> ${esc(e.reason)}</div>`).join('')}
+    ${o.best_main && o.best_main.id!==o.main_id && o.best_main.tps > op.tps*1.05 ? `<div class="warn" style="margin-top:8px">Tip: making <b>${esc(o.best_main.name)}</b> the main device would give ~${o.best_main.tps} tok/s (incl. speculation if a draft model is set).</div>`:''}
+    <div class="muted" style="font-size:11.5px;margin-top:8px">Estimates from a simple cost model (bandwidth, measured latency, layer counts) — real numbers depend on llama.cpp version, drivers and load.</div>`;
+}
+async function makePlan(){
+  const v = S.variant, m = S.model; const sel = selectedNodes();
+  const mainId = $('#mainSel').value || (sel[0]||{}).id;
+  const p = await api('/api/plan',{body:{size_gb:v.size_gb, node_ids:sel.map(n=>n.id), main_id: mainId, params_b:m.params_b, active_b:m.active_b, ctx:4096}});
+  $('#planCard').hidden = false;
+  let o = null; try{ o = await api('/api/optimize',{body:{size_gb:v.size_gb, node_ids:sel.map(n=>n.id), main_id: mainId, params_b:m.params_b, active_b:m.active_b, name:m.id}}); }catch(e){}
+  const canDl = nodes().filter(n=>n.online);
+  $('#plan').innerHTML = `<div class="row" style="margin-bottom:6px"><b class="mono">${esc(m.id)} · ${esc(v.quant)}</b>
+     <span class="fit ${o&&o.optimized.fits?'yes':'no'}">${o&&o.optimized.fits?'FITS':'DOES NOT FIT'}</span>
+     <span class="muted">${gb(v.size_gb)} of weights · pool ${gb(p.pool_gb)}</span></div>
+     ${o? optimizerHtml(o) : `<div class="no">${esc(p.reason||'')}</div>`}
+     <div class="row" style="margin-top:14px"><span class="muted">Download to</span>
+       <select id="dlNode">${canDl.map(n=>`<option value="${n.id}">${esc(n.name)} (${gb(n.info&&n.info.disk_free_gb)} free)</option>`).join('')}</select>
+       <button class="btn" id="dlBtn">Download ${gb(v.size_gb)}</button>
+       <span class="muted" style="font-size:12px">Only the main device needs the file — workers receive their layers over the network.</span></div>`;
+  $('#dlBtn').onclick = async()=>{ const nid = $('#dlNode').value; const n = node(nid);
+    if(n.info && n.info.disk_free_gb!=null && n.info.disk_free_gb < v.size_gb*1.05) return toast(`Not enough disk on ${n.name}.`, true);
+    try{ await api(`/api/node/${nid}/download`,{body:{model:m.id, files:v.files, total:v.size}}); S.dlNodes.add(nid); toast('Download started on '+n.name); pollDownloads(); }catch(e){ toast(e.message,true); } };
+}
+let dlTimer=null;
+async function pollDownloads(){
+  clearTimeout(dlTimer);
+  const ids = new Set([...S.dlNodes, (S.cluster||{}).self_id].filter(Boolean));
+  let html = '', running = false;
+  for(const id of ids){ const n = node(id); if(!n||!n.online) continue;
+    try{ const [d, lm] = await Promise.all([api(`/api/node/${id}/downloads`), api(`/api/node/${id}/local-models`)]);
+      const jobs = d.jobs||[]; running = running || jobs.some(j=>j.state==='running');
+      if(!jobs.length && !lm.models.length) continue;
+      html += `<div style="margin-bottom:12px"><b>${esc(n.name)}</b> <span class="muted mono" style="font-size:12px">${esc(lm.models_dir)}</span>`;
+      html += jobs.map(j=>{ const pct = j.total? 100*j.done/j.total : 0;
+        return `<div style="margin:8px 0"><div class="row" style="justify-content:space-between;font-size:12.5px"><span class="mono">${esc(j.model)} · ${esc(j.files[0].split('/').pop())}${j.files.length>1?` (+${j.files.length-1} parts)`:''}</span><span>${j.state==='running'? `${pct.toFixed(1)}% · ${j.speed_mbs} MB/s`: j.state==='error'? '<span class="no">'+esc(j.error)+'</span>' : j.state}${j.state==='running'?` <button class="btn ghost sm" data-cancel="${esc(j.id)}" data-n="${id}">Cancel</button>`:''}</span></div><div class="progress"><i style="width:${pct}%"></i></div></div>`; }).join('');
+      html += lm.models.length? `<div class="muted" style="font-size:12.5px;margin-top:6px">On disk: ${lm.models.map(x=>`<span class="iface">${esc(x.name)} · ${gb(x.size_gb)}</span>`).join(' ')}</div>`:'';
+      html += '</div>';
+    }catch(e){}
+  }
+  $('#downloads').innerHTML = html || 'No downloads yet.';
+  $$('[data-cancel]').forEach(b=>b.onclick=()=>api(`/api/node/${b.dataset.n}/download/cancel`,{body:{job:b.dataset.cancel}}).then(pollDownloads));
+  if(running || S.tab==='models') dlTimer = setTimeout(pollDownloads, running? 1200 : 5000);
+}
+
+// ---------- deploy
+function renderDeploy(){
+  const sel = selectedNodes(); const cur = $('#mainSel').value || store.get('main', '');
+  const capable = sel; // any selected node may be main
+  $('#mainSel').innerHTML = capable.map(n=>`<option value="${n.id}" ${n.id===cur?'selected':''}>${esc(n.name)} · ${gb(n.info.usable_memory_gb)}</option>`).join('');
+  if(!$('#mainSel').value && capable[0]) $('#mainSel').value = capable[0].id;
+  const mainId = $('#mainSel').value;
+  const wsel = new Set(store.get('workers', sel.map(n=>n.id)));
+  $('#workerList').innerHTML = sel.filter(n=>n.id!==mainId).map(n=>`<label class="sw" style="display:flex;padding:5px 0"><input type="checkbox" data-w="${n.id}" ${wsel.has(n.id)?'checked':''}> <span style="color:var(--text)">${esc(n.name)}</span> <span class="muted">worker · ${gb(n.info.usable_memory_gb)}</span></label>`).join('') || '<div class="muted">No other devices selected — the model runs on the main device alone.</div>';
+  $$('[data-w]').forEach(cb=>cb.onchange=()=>{ store.set('workers', $$('[data-w]').filter(x=>x.checked).map(x=>x.dataset.w)); renderPreflight(); });
+  renderPreflight(); renderDepStatus();
+}
+$('#mainSel').onchange = ()=>{ store.set('main', $('#mainSel').value); renderDeploy(); loadModelFiles(); };
+function workerIds(){ return $$('[data-w]').filter(x=>x.checked).map(x=>x.dataset.w); }
+async function loadModelFiles(){
+  const id = $('#mainSel').value; if(!id) return;
+  try{ const r = await api(`/api/node/${id}/local-models`);
+    $('#modelSel').innerHTML = r.models.length? r.models.map(m=>`<option value="${esc(m.path)}" data-size="${m.size_gb}">${esc(m.name)} · ${gb(m.size_gb)}</option>`).join('') : '<option value="">No models on this device — download one in Models</option>';
+    $('#draftSel').innerHTML = '<option value="">None (no speculative decoding)</option>' + r.models.filter(m=>m.size_gb<4).map(m=>`<option value="${esc(m.path)}" data-size="${m.size_gb}">${esc(m.name)} · ${gb(m.size_gb)}</option>`).join('');
+  }catch(e){ $('#modelSel').innerHTML = `<option value="">${esc(e.message)}</option>`; }
+  renderPreflight();
+}
+$('#refreshModels').onclick = loadModelFiles; $('#modelSel').onchange = renderPreflight; $('#draftSel').onchange = renderPreflight; $('#autoOpt').onchange = renderPreflight;
+let optT = null;
+function optPreview(){
+  clearTimeout(optT); optT = setTimeout(async()=>{
+    const main = node($('#mainSel').value); const opt = $('#modelSel').selectedOptions[0];
+    if(!main || !opt || !opt.value || !$('#autoOpt').checked){ $('#optPreview').innerHTML=''; return; }
+    const d = $('#draftSel').selectedOptions[0];
+    try{ const o = await api('/api/optimize',{body:{size_gb:+opt.dataset.size, name:opt.value, main_id:main.id, node_ids:[main.id,...workerIds()], draft_gb: d&&d.value? +d.dataset.size : null}});
+      $('#optPreview').innerHTML = '<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px"><b>Optimized plan</b>'+optimizerHtml(o)+(o.optimized.speculative && d && d.value? `<div class="ok" style="font-size:12.5px">Speculative decoding with ${esc(d.textContent)}: draft k=${o.optimized.speculative.k}, ~${o.optimized.speculative.speedup}× → ~${o.optimized.tps} tok/s if ~60% of drafts are accepted.</div>`:'')+'</div>';
+    }catch(e){ $('#optPreview').innerHTML = `<div class="no">${esc(e.message)}</div>`; }
+  }, 250);
+}
+function renderPreflight(){
+  const main = node($('#mainSel').value); if(!main){ $('#preflight').innerHTML='<div class="muted">Select devices first.</div>'; return; }
+  const ws = workerIds().map(node).filter(Boolean); const L = S.cluster.links||{};
+  const rows = [];
+  const lcm = (main.info.llama_cpp||{});
+  rows.push([!!lcm['llama-server'], `${main.name}: llama-server installed`, 'Run scripts/install_llama_cpp.sh on it']);
+  ws.forEach(w=>rows.push([!!(w.info.llama_cpp||{})['rpc-server'], `${w.name}: rpc-server installed`, 'Run scripts/install_llama_cpp.sh on it']));
+  const opt = $('#modelSel').selectedOptions[0]; const size = opt? +opt.dataset.size : 0;
+  rows.push([!!$('#modelSel').value, 'Model file present on the main device', 'Download one in the Models tab']);
+  if(size){ const pool = [main,...ws].reduce((a,n)=>a+n.info.usable_memory_gb,0); const need = size+Math.max(.5,size/20)+0.8*(ws.length+1);
+    rows.push([need<=pool, `Memory: needs ~${need.toFixed(0)} GB, devices offer ${pool.toFixed(0)} GB`, 'Add devices or pick a smaller version']); }
+  ws.forEach(w=>{ const r = L[main.id+'|'+w.id] || L[w.id+'|'+main.id];
+    rows.push([r&&r.ok? (grade(r)==='g-bad'?'warn':true) : 'warn', r&&r.ok? `Link ${main.name} ↔ ${w.name}: ${r.latency_ms} ms, ${fmtMbps(r.mbps)} (${r.type})` : `Link ${main.name} ↔ ${w.name} not tested`, 'Run the connection test']); });
+  optPreview();
+  $('#preflight').innerHTML = rows.map(([ok,txt,fix])=>`<div style="padding:4px 0">${ok===true?'<span class="ok">✓</span>':ok==='warn'?'<span class="warn">!</span>':'<span class="no">✗</span>'} ${esc(txt)} ${ok===true?'':`<span class="muted">— ${esc(fix)}</span>`}</div>`).join('');
+}
+$('#deployBtn').onclick = async()=>{
+  const mo = $('#modelSel').selectedOptions[0], dr = $('#draftSel').selectedOptions[0];
+  const body = {main_id:$('#mainSel').value, worker_ids:workerIds(), model_path:$('#modelSel').value, ctx:+$('#ctxSel').value, extra_args:$('#extraArgs').value, rpc_cache:$('#rpcCache').checked, type:S.depNet,
+    optimize:$('#autoOpt').checked, model_size_gb: mo? +mo.dataset.size : null, draft_path: dr&&dr.value? dr.value : null, draft_size_gb: dr&&dr.value? +dr.dataset.size : null};
+  if(!body.model_path) return toast('Pick a model file on the main device first.', true);
+  $('#deployBtn').disabled = true; $('#deployMsg').textContent = 'Starting workers and main server…';
+  try{ const d = await api('/api/cluster/deploy',{body}); $('#deployMsg').textContent = d.state==='running'? 'Started — the main device is now loading the model.' : 'Failed — see steps below.'; await refresh(); renderDepStatus(); }
+  catch(e){ toast(e.message,true); $('#deployMsg').textContent=''; }
+  $('#deployBtn').disabled = false;
+};
+$('#stopBtn').onclick = async()=>{ await api('/api/cluster/stop',{body:{}}); toast('Stopped'); refresh(); };
+let depTimer=null;
+async function renderDepStatus(){
+  clearTimeout(depTimer);
+  const d = (S.cluster||{}).deployment;
+  if(!d){ $('#depStatus').innerHTML='Nothing running.'; updateApiInfo(); return; }
+  let html = '';
+  if(d.health && !d.health.ok) html += `<div class="health">⚠ <span><b>Degraded:</b> ${esc(d.health.offline.join(', '))} went offline. Requests will fail until you re-plan.</span><span class="spacer"></span><button class="btn sm" id="replanBtn">Re-plan &amp; redeploy without it</button></div>`;
+  html += `<div class="steps">${d.steps.map(s=>`<div>${s.skipped?'<span class="muted">○</span>':s.ok?'<span class="ok">✓</span>':'<span class="no">✗</span>'} <b>${esc(s.node)}</b> — ${esc(s.step)} ${s.error?'<span class="no">'+esc(s.error)+'</span>':''} ${s.simulated?'<span class="badge demo">SIM</span>':''}</div>`).join('')}</div>`;
+  if(d.state==='running' && !d.simulated){
+    const ids = [d.main_id, ...d.worker_ids];
+    for(const id of ids){ const n = node(id); if(!n) continue;
+      try{ const p = await api(`/api/node/${id}/procs`); const proc = id===d.main_id? p.main : p.worker;
+        const ready = id===d.main_id? (p.server_ready? '<span class="ok">● ready — serving requests</span>' : '<span class="warn">● loading model…</span>') : (proc&&proc.running?'<span class="ok">● worker running</span>':'<span class="no">● not running</span>');
+        html += `<div style="margin-top:12px"><b>${esc(n.name)}</b> ${ready}<div class="logs" style="margin-top:6px">${esc(((proc||{}).logs||[]).slice(-40).join('\n'))}</div></div>`;
+      }catch(e){ html += `<div class="no">${esc(n.name)}: ${esc(e.message)}</div>`; }
+    }
+  } else if(d.simulated && d.state==='running'){ html += '<div class="ok" style="margin-top:10px">● Simulated cluster running — try the Chat tab.</div>'; }
+  $('#depStatus').innerHTML = html; updateApiInfo();
+  const rb = $('#replanBtn'); if(rb) rb.onclick = async()=>{ rb.disabled=true; try{ const r = await api('/api/cluster/redeploy',{body:{}}); toast(r.state==='running'? 'Redeployed on the remaining devices' : 'Re-plan failed — see steps', r.state!=='running'); }catch(e){ toast(e.message,true);} refresh(); };
+  if(d.state==='running' && S.tab==='deploy') depTimer = setTimeout(()=>refresh(), 2500);
+}
+function updateApiInfo(){
+  const d = (S.cluster||{}).deployment;
+  if(!d || d.state!=='running'){ $('#apiInfo').textContent='Deploy a model first.'; return; }
+  const n = node(d.main_id); let base = d.api;
+  if(n && n.self){ const ip = (n.info.interfaces||[]).find(i=>!i.link_local); base = base.replace('127.0.0.1', ip?ip.ip:'localhost'); }
+  $('#apiInfo').textContent = `Base URL:  ${base}\nAPI key:   anything\nModel:     ${d.model_path.split('/').pop()}\n\ncurl ${base}/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -d '{"messages":[{"role":"user","content":"Hello"}]}'${d.simulated?'\n\n(demo: simulated, no real endpoint)':''}`;
+}
+
+// ---------- chat
+function renderChat(){
+  $('#chatBox').innerHTML = S.chat.length? S.chat.map(m=>`<div class="msg ${m.role}">${esc(m.content)}</div>`).join('') : '<div class="empty">Deploy a model, then chat with it here.</div>';
+  $('#chatBox').scrollTop = 1e9;
+}
+$('#chatIn').onkeydown = e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); } };
+$('#chatSend').onclick = sendChat;
+async function sendChat(){
+  const text = $('#chatIn').value.trim(); if(!text) return;
+  S.chat.push({role:'user',content:text}); $('#chatIn').value=''; const reply = {role:'assistant',content:''}; S.chat.push(reply); renderChat();
+  const headers = {'Content-Type':'application/json'}; const tok = store.get('token',''); if(tok) headers['X-LocalMesh-Token']=tok;
+  const t0 = performance.now(); let tokens = 0, first = null;
+  try{
+    const r = await fetch('/api/cluster/chat',{method:'POST',headers,body:JSON.stringify({messages:S.chat.slice(0,-1).map(({role,content})=>({role,content}))})});
+    if(!r.ok){ const j = await r.json().catch(()=>({})); throw new Error(j.detail||r.statusText); }
+    const rd = r.body.getReader(); const dec = new TextDecoder(); let buf='';
+    while(true){ const {done,value} = await rd.read(); if(done) break; buf += dec.decode(value,{stream:true});
+      let i; while((i = buf.indexOf('\n'))>=0){ const line = buf.slice(0,i).trim(); buf = buf.slice(i+1);
+        if(!line.startsWith('data:')) continue; const data = line.slice(5).trim(); if(data==='[DONE]') continue;
+        try{ const j = JSON.parse(data); if(j.error) throw new Error(typeof j.error==='string'? j.error : j.error.message);
+          const delta = (j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content)||''; if(delta){ if(first===null) first=performance.now(); tokens++; reply.content += delta; renderChat(); }
+        }catch(err){ if(err.message && !err.message.startsWith('Unexpected')) throw err; } } }
+    const secs = (performance.now()-(first||t0))/1000;
+    $('#chatStats').textContent = `${tokens} tokens · ${(tokens/Math.max(secs,0.001)).toFixed(1)} tokens/s · first token after ${(((first||performance.now())-t0)/1000).toFixed(2)} s`;
+  }catch(e){ reply.content = '⚠ '+e.message; renderChat(); }
+}
+
+// ---------- boot
+showTab(store.get('tab','devices'));
+refresh(); setInterval(()=>{ if(S.tab!=='deploy') refresh(); }, 3000);
+</script>
+</body>
+</html>
