@@ -655,7 +655,7 @@ async function pollActivity(){
     const busy = g && g.util > 15;
     html += `<div class="actc ${busy?'busy':''}"><h4>${esc(n.name)} <span class="badge ${role==='MAIN'?'self':'demo'}">${role}</span>${st.simulated?'<span class="badge demo">SIM</span>':''}</h4>
       <div class="muted" style="font-size:12px">${esc((n.info||{}).cpu||'')}${g?' · '+esc(g.name.replace('NVIDIA ','').replace(' Laptop GPU','')):''}</div>
-      ${st.error? `<div class="no" style="margin-top:8px">${esc(st.error)}</div>` : `
+      ${st.error? `<div class="warn" style="margin-top:8px;font-size:12.5px">${/not found/i.test(st.error)? 'This computer runs an older LocalMesh. Update it (git pull) and restart ./start.sh to see live usage.' : esc(st.error)}</div>` : `
       ${mrow('Model share', pct, pct!=null? `${(sh.model/1024).toFixed(1)} GB · ${Math.round(pct)}%` : (role==='MAIN' && totalW===0? 'reading…' : '—'), '#7c9cff')}
       ${mrow('GPU busy', g&&g.util, g&&g.util!=null? Math.round(g.util)+' %' : 'n/a')}
       ${g&&g.mem_used_gb!=null? mrow(g.kind==='vram'?'GPU memory':'Unified mem', 100*g.mem_used_gb/g.mem_total_gb, `${g.mem_used_gb.toFixed(1)}/${Math.round(g.mem_total_gb)} GB`, '#c084fc') : ''}
