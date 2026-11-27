@@ -166,6 +166,26 @@ def main():
     check("layer split pinned with --device/--tensor-split", "devices=[FAKEGPU0,RPC[" in text
           and "split=[" in text and "split=[]" not in text, text)
 
+    st = c.get(f"{A}/api/node/{ids['alpha']}/stats").json()
+    check("live stats: CPU/RAM/net + per-device model memory from llama.cpp",
+          "cpu_percent" in st and st["net"] and any(k.startswith("RPC") for k in st["buffers"])
+          and st["procs"]["main"] and st["procs"]["main"]["rss_gb"] >= 0, json.dumps(st)[:300])
+    wst = c.get(f"{A}/api/node/{ids['beta']}/stats").json()
+    check("live stats proxied from a worker device", "ram_total_gb" in wst, json.dumps(wst)[:200])
+
+    B = "http://127.0.0.1:7970"
+    rm = wait_for(lambda: c.get(B + "/api/cluster").json().get("remote_main"), timeout=15)
+    check("another device sees the served model (remote_main)", rm and rm["id"] == ids["alpha"],
+          str(rm))
+    text_b = ""
+    with c.stream("POST", f"{B}/api/cluster/chat",
+                  json={"messages": [{"role": "user", "content": "hi"}]}) as r:
+        for line in r.iter_lines():
+            if line.startswith("data:") and "[DONE]" not in line:
+                text_b += json.loads(line[5:])["choices"][0]["delta"].get("content", "")
+    check("chat from another device without downloading the model", "fake cluster" in text_b,
+          text_b[:200])
+
     print("Failure drill: a worker dies mid-session")
     victim = next(n for n, i in ids.items() if i in used and n != "alpha")
     by_name[victim].terminate()

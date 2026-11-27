@@ -268,3 +268,83 @@ def snapshot(models_dir: Path, project_root: Path) -> dict:
         "interfaces": detect_interfaces(),
         "llama_cpp": find_llama_binaries(project_root),
     }
+
+
+# --------------------------------------------------------------------------- Live stats
+
+_NET_PREV: dict = {}
+_PROC_CACHE: dict = {}
+
+
+def gpu_live() -> list[dict]:
+    """Current GPU utilisation and memory. NVIDIA via nvidia-smi; Apple Silicon via ioreg
+    (no sudo needed). Returns [] when nothing can be read."""
+    out = []
+    if shutil.which("nvidia-smi"):
+        txt = _run(["nvidia-smi", "--query-gpu=name,utilization.gpu,memory.used,memory.total",
+                    "--format=csv,noheader,nounits"], timeout=3)
+        for line in txt.splitlines():
+            p = [x.strip() for x in line.split(",")]
+            try:
+                out.append({"name": p[0], "util": float(p[1]), "mem_used_gb": float(p[2]) / 1024,
+                            "mem_total_gb": float(p[3]) / 1024, "kind": "vram"})
+            except (ValueError, IndexError):
+                pass
+    if platform.system() == "Darwin" and platform.machine() == "arm64":
+        txt = _run(["ioreg", "-r", "-d", "1", "-w", "0", "-c", "IOAccelerator"], timeout=3)
+        util = re.search(r'"Device Utilization %"\s*=\s*(\d+)', txt)
+        used = re.search(r'"In use system memory"\s*=\s*(\d+)', txt)
+        if util or used:
+            out.append({"name": cpu_name() + " GPU",
+                        "util": float(util.group(1)) if util else None,
+                        "mem_used_gb": int(used.group(1)) / GB if used else None,
+                        "mem_total_gb": psutil.virtual_memory().total / GB, "kind": "unified"})
+    return out
+
+
+def net_live(interfaces: list[dict]) -> list[dict]:
+    """Per-interface throughput (Mbps) since the previous call."""
+    import time as _t
+    now = _t.time()
+    counters = psutil.net_io_counters(pernic=True)
+    res = []
+    for i in interfaces:
+        c = counters.get(i["name"])
+        if not c:
+            continue
+        prev = _NET_PREV.get(i["name"])
+        _NET_PREV[i["name"]] = (now, c.bytes_recv, c.bytes_sent)
+        rx = tx = 0.0
+        if prev and now > prev[0]:
+            dt = now - prev[0]
+            rx = (c.bytes_recv - prev[1]) * 8 / dt / 1e6
+            tx = (c.bytes_sent - prev[2]) * 8 / dt / 1e6
+        res.append({"name": i["name"], "label": i["label"], "type": i["type"], "ip": i["ip"],
+                    "rx_mbps": round(max(rx, 0), 2), "tx_mbps": round(max(tx, 0), 2)})
+    return res
+
+
+def proc_live(pid: int | None) -> dict | None:
+    if not pid:
+        return None
+    try:
+        p = _PROC_CACHE.get(pid)
+        if p is None:
+            p = psutil.Process(pid)
+            p.cpu_percent(None)
+            _PROC_CACHE[pid] = p
+        with p.oneshot():
+            return {"pid": pid, "rss_gb": round(p.memory_info().rss / GB, 2),
+                    "cpu_percent": round(p.cpu_percent(None), 1)}
+    except Exception:  # noqa: BLE001
+        _PROC_CACHE.pop(pid, None)
+        return None
+
+
+def live_stats() -> dict:
+    vm = psutil.virtual_memory()
+    return {"cpu_percent": psutil.cpu_percent(interval=None),
+            "ram_used_gb": round((vm.total - vm.available) / GB, 1),
+            "ram_total_gb": round(vm.total / GB, 1),
+            "gpus": gpu_live(),
+            "net": net_live([i for i in detect_interfaces()])}

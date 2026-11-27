@@ -155,6 +155,13 @@ def create_app(cfg: Config) -> FastAPI:
                 return None, {"ip": ip, "type": "routed"}, "routed"
         return None
 
+    def remote_main():
+        """A peer that is currently serving a model (its llama-server is running)."""
+        for n in peers.values():
+            if n.get("online") and (n.get("roles") or {}).get("main"):
+                return n
+        return None
+
     async def node_call(node: dict, method: str, path: str, payload=None, timeout=30):
         """Call a node's API (local node goes through loopback)."""
         if node.get("simulated"):
@@ -345,6 +352,17 @@ def create_app(cfg: Config) -> FastAPI:
         return (["--device", ",".join(order), "--tensor-split", ts],
                 f"layer split pinned: {', '.join(f'{o}={w:g}' for o, w in zip(order, weights))}")
 
+    @app.get("/api/stats")
+    async def api_stats():
+        """Live usage of this device: CPU, RAM, GPU busy %, GPU memory, cable traffic, and the
+        llama.cpp processes LocalMesh started here."""
+        st = await asyncio.to_thread(hardware.live_stats)
+        st["procs"] = {"main": hardware.proc_live(main.proc.pid if main.running else None),
+                       "worker": hardware.proc_live(worker.proc.pid if worker.running else None)}
+        st["buffers"] = main.buffers if main.running else {}
+        st["t"] = time.time()
+        return st
+
     @app.post("/api/procs/stop")
     async def api_procs_stop():
         await main.stop()
@@ -415,10 +433,18 @@ def create_app(cfg: Config) -> FastAPI:
             gone = [get_node(i) for i in [dep["main_id"]] + dep.get("worker_ids", [])]
             off = [n["name"] if n else "?" for n in gone if not n or not n.get("online")]
             dep["health"] = {"ok": not off, "offline": off}
+        rm = None
+        if not (dep and dep.get("state") == "running"):
+            r = remote_main()
+            if r:
+                ip = r["address"].split(":")[0]
+                rm = {"id": r["id"], "name": r["name"], "address": r["address"],
+                      "api": f"http://{ip}:{r.get('llama_port') or 8080}/v1",
+                      "webui": f"http://{ip}:{r.get('llama_port') or 8080}"}
         d = discovery_ref.get("d")
         return {"self_id": cfg.node_id, "cluster": cfg.cluster, "token_set": bool(cfg.token),
                 "demo": state["demo"], "nodes": nodes, "links": links,
-                "deployment": state["deployment"],
+                "deployment": state["deployment"], "remote_main": rm,
                 "discovery_errors": d.errors if d else ["discovery disabled"]}
 
     @app.post("/api/demo")
@@ -580,6 +606,8 @@ def create_app(cfg: Config) -> FastAPI:
         if path == "procs/stop":
             demo_rt.stop_all(node_id)
             return {"ok": True}
+        if path == "stats":
+            return demo.demo_stats(node_id, get_node(node_id))
         raise HTTPException(400, f"not available on a simulated device: {path}")
 
     # ---- optimization (see localmesh/optimizer.py and docs/RESEARCH.md)
@@ -770,7 +798,24 @@ def create_app(cfg: Config) -> FastAPI:
         body = await request.json()
         dep = state["deployment"]
         if not dep or dep.get("state") != "running":
-            raise HTTPException(400, "Nothing deployed yet.")
+            # Nothing deployed from this dashboard: use a model another device is serving,
+            # so this computer can chat without downloading anything.
+            r = remote_main()
+            if not r:
+                raise HTTPException(400, "Nothing deployed yet, and no other device is serving "
+                                    "a model.")
+
+            async def gen_remote():
+                try:
+                    async with httpx.AsyncClient(timeout=httpx.Timeout(10, read=600)) as c:
+                        async with c.stream("POST", f"http://{r['address']}/api/chat", json=body,
+                                            headers=auth_headers()) as resp:
+                            async for chunk in resp.aiter_raw():
+                                yield chunk
+                except Exception as e:  # noqa: BLE001
+                    msg = "%s is not reachable: %s" % (r.get("name", "device"), e)
+                    yield ("data: " + json.dumps({"error": msg}) + "\n\n").encode()
+            return StreamingResponse(gen_remote(), media_type="text/event-stream")
         if dep.get("simulated"):
             return StreamingResponse(demo.demo_chat_stream(body.get("messages", [])),
                                      media_type="text/event-stream")

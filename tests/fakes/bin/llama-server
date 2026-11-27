@@ -44,6 +44,11 @@ for ep in rpc:
     except OSError as e:
         print(f"[fake] error: failed to connect to RPC server {ep}: {e}", flush=True)
         sys.exit(1)
+print("load_tensors:   CPU_Mapped model buffer size =    120.00 MiB", flush=True)
+print("load_tensors:   FAKEGPU0 model buffer size =   2048.00 MiB", flush=True)
+for i, ep in enumerate(rpc):
+    print(f"load_tensors:   RPC{i}[{ep}] model buffer size =   1024.00 MiB", flush=True)
+print("llama_kv_cache:   FAKEGPU0 KV buffer size =    96.00 MiB", flush=True)
 time.sleep(1)
 app = FastAPI()
 

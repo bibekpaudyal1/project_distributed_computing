@@ -192,3 +192,22 @@ async def demo_chat_stream(messages: list[dict]):
         yield f"data: {json.dumps(chunk)}\n\n".encode()
         await asyncio.sleep(0.04)
     yield b"data: [DONE]\n\n"
+
+
+def demo_stats(node_id: str, node: dict | None) -> dict:
+    """Plausible, clearly simulated live numbers for a demo device."""
+    info = (node or {}).get("info") or {}
+    busy = random.uniform(35, 90)
+    gpus = []
+    for g in info.get("gpus", []):
+        total = g.get("vram_gb") or info.get("ram_total_gb", 16)
+        gpus.append({"name": g["name"], "util": round(busy + random.uniform(-10, 10), 0),
+                     "mem_used_gb": round(total * random.uniform(0.55, 0.8), 1),
+                     "mem_total_gb": total, "kind": "vram" if g.get("vram_gb") else "unified"})
+    net = [{"name": i["name"], "label": i["label"], "type": i["type"], "ip": i["ip"],
+            "rx_mbps": round(random.uniform(0.2, 3), 2), "tx_mbps": round(random.uniform(0.2, 3), 2)}
+           for i in info.get("interfaces", [])[:1]]
+    total = info.get("ram_total_gb", 16)
+    return {"cpu_percent": round(random.uniform(8, 30), 1), "ram_total_gb": total,
+            "ram_used_gb": round(total * random.uniform(0.4, 0.7), 1), "gpus": gpus, "net": net,
+            "procs": {}, "buffers": {}, "t": time.time(), "simulated": True}
