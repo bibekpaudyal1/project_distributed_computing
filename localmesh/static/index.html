@@ -413,8 +413,9 @@ function renderVariants(){
   const pool = selectedNodes().reduce((a,n)=>a+n.info.usable_memory_gb,0);
   $('#variants').innerHTML = `<div class="muted" style="font-size:12.5px;margin-bottom:8px">${m.params_b? m.params_b+'B parameters':''}${m.active_b? ' · '+m.active_b+'B active per token (MoE)':''}${m.simulated?' · <span class="badge demo">SAMPLE</span>':''} · your selected pool: <b>${gb(pool)}</b></div>
   <table><tr><th>Version</th><th>Size</th><th>Files</th><th>Fits?</th><th></th></tr>`+
-  m.variants.map((v,k)=>{ const f = quickFit(v.size_gb); return `<tr><td class="mono">${esc(v.quant)}</td><td>${gb(v.size_gb)}</td><td>${v.files.length}</td><td><span class="fit ${f}">${f==='yes'?'fits':f==='tight'?'tight':'too big'}</span></td><td><button class="btn ghost sm" data-v="${k}">Plan</button></td></tr>`; }).join('')+'</table>';
+  m.variants.map((v,k)=>{ const f = quickFit(v.size_gb); return `<tr><td class="mono">${esc(v.quant)}</td><td>${gb(v.size_gb)}</td><td>${v.files.length}</td><td><span class="fit ${f}">${f==='yes'?'fits':f==='tight'?'tight':'too big'}</span></td><td style="white-space:nowrap"><button class="btn ghost sm" data-v="${k}">Plan</button> <button class="btn sm" data-dl="${k}" title="Download to this device">⬇ Download</button></td></tr>`; }).join('')+'</table>';
   $$('#variants [data-v]').forEach(b=>b.onclick=()=>{ S.variant = m.variants[+b.dataset.v]; makePlan(); });
+  $$('#variants [data-dl]').forEach(b=>b.onclick=()=>downloadVariant(m, m.variants[+b.dataset.dl], (S.cluster||{}).self_id));
 }
 function optimizerHtml(o){
   const N = o.names||{}; const op = o.optimized||{}; const nv = o.naive||{};
@@ -429,6 +430,11 @@ function optimizerHtml(o){
     ${(op.excluded||[]).map(e=>`<div class="muted" style="font-size:12.5px;margin-top:4px">○ <b>${esc(e.name)}</b> ${esc(e.reason)}</div>`).join('')}
     ${o.best_main && o.best_main.id!==o.main_id && o.best_main.tps > op.tps*1.05 ? `<div class="warn" style="margin-top:8px">Tip: making <b>${esc(o.best_main.name)}</b> the main device would give ~${o.best_main.tps} tok/s (incl. speculation if a draft model is set).</div>`:''}
     <div class="muted" style="font-size:11.5px;margin-top:8px">Estimates from a simple cost model (bandwidth, measured latency, layer counts) — real numbers depend on llama.cpp version, drivers and load.</div>`;
+}
+async function downloadVariant(m, v, nid){
+  const n = node(nid); if(!n) return toast('Device not found', true);
+  if(n.info && n.info.disk_free_gb!=null && n.info.disk_free_gb < v.size_gb*1.05) return toast(`Not enough disk on ${n.name}.`, true);
+  try{ await api(`/api/node/${nid}/download`,{body:{model:m.id, files:v.files, total:v.size}}); S.dlNodes.add(nid); toast(`Downloading ${v.quant} (${gb(v.size_gb)}) to ${n.name} — progress below`); pollDownloads(); setTimeout(()=>$('#downloads').scrollIntoView({behavior:'smooth'}), 300); }catch(e){ toast(e.message,true); }
 }
 async function makePlan(){
   const v = S.variant, m = S.model; const sel = selectedNodes();
@@ -445,9 +451,7 @@ async function makePlan(){
        <select id="dlNode">${canDl.map(n=>`<option value="${n.id}">${esc(n.name)} (${gb(n.info&&n.info.disk_free_gb)} free)</option>`).join('')}</select>
        <button class="btn" id="dlBtn">Download ${gb(v.size_gb)}</button>
        <span class="muted" style="font-size:12px">Only the main device needs the file — workers receive their layers over the network.</span></div>`;
-  $('#dlBtn').onclick = async()=>{ const nid = $('#dlNode').value; const n = node(nid);
-    if(n.info && n.info.disk_free_gb!=null && n.info.disk_free_gb < v.size_gb*1.05) return toast(`Not enough disk on ${n.name}.`, true);
-    try{ await api(`/api/node/${nid}/download`,{body:{model:m.id, files:v.files, total:v.size}}); S.dlNodes.add(nid); toast('Download started on '+n.name); pollDownloads(); }catch(e){ toast(e.message,true); } };
+  $('#dlBtn').onclick = ()=>downloadVariant(m, v, $('#dlNode').value);
 }
 let dlTimer=null;
 async function pollDownloads(){
