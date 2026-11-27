@@ -208,19 +208,26 @@ def find_llama_binaries(project_root: Path) -> dict:
                    project_root / "vendor" / "llama.cpp" / "build" / "bin" / "Release"]
     # Prefer the project's own build (scripts/install_llama_cpp.sh) over PATH: llama.cpp RPC
     # needs the SAME version on every device, and a Homebrew/apt copy may differ.
+    # Newer llama.cpp names the RPC worker ggml-rpc-server; older builds use rpc-server.
+    names = {"rpc-server": ["ggml-rpc-server", "rpc-server", "llama-rpc-server"],
+             "llama-server": ["llama-server"]}
     found = {}
-    for binary in ("rpc-server", "llama-server"):
+    for key, options in names.items():
         path = None
         for c in candidates:
-            for suffix in ("", ".exe"):
-                p = c / f"{binary}{suffix}"
-                if p.exists():
-                    path = str(p)
+            for name in options:
+                for suffix in ("", ".exe"):
+                    p = c / f"{name}{suffix}"
+                    if p.exists():
+                        path = str(p)
+                        break
+                if path:
                     break
             if path:
                 break
-        path = path or shutil.which(binary) or shutil.which(f"llama-{binary}")
-        found[binary] = path
+        if not path:
+            path = next((shutil.which(n) for n in options if shutil.which(n)), None)
+        found[key] = path
     return found
 
 

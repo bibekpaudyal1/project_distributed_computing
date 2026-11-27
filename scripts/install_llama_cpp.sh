@@ -23,9 +23,11 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 cmake -S vendor/llama.cpp -B vendor/llama.cpp/build "${FLAGS[@]}"
 JOBS=$( (command -v nproc >/dev/null && nproc) || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-cmake --build vendor/llama.cpp/build --config Release -j "$JOBS" --target rpc-server llama-server
+# The RPC worker target was renamed from rpc-server to ggml-rpc-server in newer llama.cpp.
+cmake --build vendor/llama.cpp/build --config Release -j "$JOBS" --target llama-server ggml-rpc-server \
+  || cmake --build vendor/llama.cpp/build --config Release -j "$JOBS" --target llama-server rpc-server
 
 echo
 echo "✓ Built:"
-ls -1 vendor/llama.cpp/build/bin/ | grep -E "^(rpc-server|llama-server)$"
+ls -1 vendor/llama.cpp/build/bin/ | grep -E "^(ggml-rpc-server|rpc-server|llama-server)$"
 echo "Restart LocalMesh on this device; the Devices page should show ✓ rpc-server ✓ llama-server."
