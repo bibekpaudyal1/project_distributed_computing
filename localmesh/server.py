@@ -305,7 +305,9 @@ def create_app(cfg: Config) -> FastAPI:
         """Ask llama.cpp which devices it sees, then pin our layer split with --device and
         --tensor-split (same order in both, so the split is exact). Falls back to llama.cpp's
         default memory-proportional split if the device list can't be read."""
-        cmd = [binary, "--list-devices"] + (["--rpc", ",".join(rpc)] if rpc else [])
+        # --rpc must come BEFORE --list-devices: llama.cpp prints the list and exits as soon as
+        # it parses --list-devices, so RPC devices given after it are never registered.
+        cmd = [binary] + (["--rpc", ",".join(rpc)] if rpc else []) + ["--list-devices"]
         try:
             p = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE,
                                                      stderr=asyncio.subprocess.STDOUT)

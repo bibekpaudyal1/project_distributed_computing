@@ -19,9 +19,13 @@ get = lambda k, d=None: args[args.index(k) + 1] if k in args else d  # noqa: E73
 model, port = get("-m"), int(get("--port", 8080))
 rpc = [r for r in (get("--rpc", "") or "").split(",") if r]
 if "--list-devices" in args:
+    # Like real llama.cpp: --list-devices runs as soon as it is parsed, so only RPC servers
+    # given *before* it are registered.
+    li = args.index("--list-devices")
+    rpc_before = [r for r in (args[args.index("--rpc") + 1].split(",") if "--rpc" in args[:li] else []) if r]
     print("Available devices:")
     print("  FAKEGPU0: Fake local GPU (8192 MiB, 8000 MiB free)")
-    for ep in rpc:
+    for ep in rpc_before:
         print(f"  RPC[{ep}]: RPC[{ep}] (16384 MiB, 16000 MiB free)")
     sys.exit(0)
 devices, split = get("--device", ""), get("--tensor-split", "")
