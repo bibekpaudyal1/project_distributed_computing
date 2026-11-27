@@ -11,7 +11,8 @@ from .server import Config, create_app
 def lan_ips():
     try:
         from .hardware import detect_interfaces
-        return [f"{i['ip']} ({i['type']})" for i in detect_interfaces() if not i["link_local"]]
+        return [f"{i['ip']} ({i['type']}{', direct cable/switch, no router' if i['link_local'] else ''})"
+                for i in detect_interfaces()]
     except Exception:  # noqa: BLE001
         return []
 
@@ -38,7 +39,8 @@ def main():
     print("\n  LocalMesh AI node", f"'{cfg.name}'", f"(id {cfg.node_id}, cluster '{cfg.cluster}')")
     print(f"  Dashboard:  http://localhost:{cfg.port}")
     for ip in lan_ips():
-        print(f"  On the LAN: http://{ip.split()[0]}:{cfg.port}   {ip.split()[1]}")
+        addr, label = ip.split(" ", 1)
+        print(f"  On the LAN: http://{addr}:{cfg.port}   {label}")
     if cfg.token:
         print("  Token protection: ON")
     print(f"  Models folder: {cfg.models_dir}\n")
