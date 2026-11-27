@@ -206,18 +206,20 @@ def find_llama_binaries(project_root: Path) -> dict:
         candidates.append(Path(os.environ["LLAMA_CPP_DIR"]))
     candidates += [project_root / "vendor" / "llama.cpp" / "build" / "bin",
                    project_root / "vendor" / "llama.cpp" / "build" / "bin" / "Release"]
+    # Prefer the project's own build (scripts/install_llama_cpp.sh) over PATH: llama.cpp RPC
+    # needs the SAME version on every device, and a Homebrew/apt copy may differ.
     found = {}
     for binary in ("rpc-server", "llama-server"):
-        path = shutil.which(binary) or shutil.which(f"llama-{binary}")
-        if not path:
-            for c in candidates:
-                for suffix in ("", ".exe"):
-                    p = c / f"{binary}{suffix}"
-                    if p.exists():
-                        path = str(p)
-                        break
-                if path:
+        path = None
+        for c in candidates:
+            for suffix in ("", ".exe"):
+                p = c / f"{binary}{suffix}"
+                if p.exists():
+                    path = str(p)
                     break
+            if path:
+                break
+        path = path or shutil.which(binary) or shutil.which(f"llama-{binary}")
         found[binary] = path
     return found
 
